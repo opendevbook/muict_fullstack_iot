@@ -43,6 +43,7 @@ byte VALVE7 = 6;
 byte VALVE8 = 7;
 byte VALVE9 = 8;
 byte VALVE10 = 9;
+byte VALVE11 = 9;
 
 MCPInputConfigurator mcp1(0x21);
 MCPInputConfigurator mcp2(0x22);
@@ -164,7 +165,7 @@ void controlvalve(uint8_t pin, bool direction)
         // Control Right, LCD is Green
         mcp5.setPinState(pin, LOW);  // Activate mcp5
         mcp6.setPinState(pin, HIGH); // Activate mcp6
-        delay(10000);
+        delay(15000);
 
         mcp5.setPinState(pin, HIGH); // Deactivate mcp5
         mcp6.setPinState(pin, HIGH); // Keep mcp6 active
@@ -175,7 +176,7 @@ void controlvalve(uint8_t pin, bool direction)
         // Control Left, LCD is Red
         mcp5.setPinState(pin, LOW); // Activate mcp5
         mcp6.setPinState(pin, LOW); // Activate mcp6
-        delay(13000);
+        delay(15000);
 
         mcp5.setPinState(pin, HIGH); // Deactivate mcp5
         mcp6.setPinState(pin, HIGH); // Deactivate mcp6
@@ -187,27 +188,27 @@ void testvalve2()
 {
     controlvalve(VALVE1, OPEN);
     delay(1000);
-    controlvalve(VALVE1, LEFT);
+    controlvalve(VALVE1, CLOSE);
     delay(1000);
 
     controlvalve(VALVE2, OPEN);
     delay(1000);
-    controlvalve(VALVE2, LEFT);
+    controlvalve(VALVE2, CLOSE);
     delay(1000);
 
     controlvalve(VALVE3, OPEN);
     delay(1000);
-    controlvalve(VALVE3, LEFT);
+    controlvalve(VALVE3, CLOSE);
     delay(1000);
 
     controlvalve(VALVE4, OPEN);
     delay(1000);
-    controlvalve(VALVE4, LEFT);
+    controlvalve(VALVE4, CLOSE);
     delay(1000);
 
     controlvalve(VALVE5, OPEN);
     delay(1000);
-    controlvalve(VALVE5, LEFT);
+    controlvalve(VALVE5, CLOSE);
     delay(1000);
 
     controlvalve(VALVE6, OPEN);
@@ -234,5 +235,11 @@ void testvalve2()
     delay(1000);
     controlvalve(VALVE10, CLOSE);
     delay(1000);
+
+    controlvalve(VALVE11, OPEN);
+    delay(1000);
+    controlvalve(VALVE11, CLOSE);
+    delay(1000);
 }
+
 #endif

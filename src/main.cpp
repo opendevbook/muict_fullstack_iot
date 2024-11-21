@@ -1,8 +1,11 @@
 #include "utils/scanutils.h"
-#include "connect/connection.h"
-
+#include "control/gpio.h"
 #include "mcp/mcp23017_extend.h"
+#include "connect/connection.h"
 #include "sensors/sensor.h"
+#include <SimpleTimer.h>
+
+SimpleTimer timer;
 
 void setup()
 {
@@ -13,6 +16,8 @@ void setup()
   // scani2c();
   // setupMCP();
   // test1();
+
+  testAllRelays();
 
   // Setup WiFi
   WiFi.onEvent(WiFiEvent);
@@ -39,4 +44,5 @@ void loop()
     reconnectMQTT();
   }
   client.loop();
+  timer.run();
 }

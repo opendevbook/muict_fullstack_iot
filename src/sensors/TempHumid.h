@@ -12,14 +12,9 @@ private:
   ModbusMaster node;
   Stream *_Serial;
   uint8_t result;
-  int16_t data;
-  int16_t pTemp = 0;
-  int16_t pHumi = 0;
-  int16_t Soil3 = 0;
-  String Temp;
-  String Humid;
-  float TempFloat;
-  float HumidFloat;
+
+  float temperature = 0.0;
+  float humidity = 0.0;
 
 public:
   TempHumid(uint8_t id, String name, Stream *Serial)
@@ -32,68 +27,65 @@ public:
   void init()
   {
     Serial.println("┌------------------------------------------------┐");
-    Serial.println("│ init TempHumid                                 │");
+    Serial.println("│ Initializing TempHumid Sensor                 │");
     Serial.println("└------------------------------------------------┘");
 
     Serial.print("[+] Id: ");
     Serial.println(_id);
     node.begin(_id, *_Serial);
-    int n = 0;
-    int num_try = 10;
-    do
+
+    int attempts = 0;
+    const int maxAttempts = 10;
+
+    while (attempts < maxAttempts)
     {
       delay(1000);
-      result = node.readHoldingRegisters(0x0000, 2);
+      result = node.readHoldingRegisters(0x0000, 2); // Reading 2 registers (temperature and humidity)
       if (result == node.ku8MBSuccess)
-
       {
-        Serial.println("[+] Success to read");
-        break;
+        Serial.println("[+] Successfully initialized sensor.");
+        return;
       }
       else
       {
-        Serial.println("[+] Fail to read");
+        Serial.println("[-] Failed to initialize sensor, retrying...");
       }
-      n++;
-    } while (n < num_try);
-
-    char buffer[100];
-    if (n > 1)
-    {
-      sprintf(buffer, "Try  Type1 %d time", n);
-      Serial.println(buffer);
+      attempts++;
     }
 
-    if (result == 0)
+    Serial.println("[-] Unable to initialize sensor after retries.");
+  }
+
+  // Fetch temperature in °C
+  float getTemperature()
+  {
+    if (result == node.ku8MBSuccess)
     {
-      HumidFloat = node.getResponseBuffer(0x00);
-      TempFloat = node.getResponseBuffer(0x01);
+      temperature = node.getResponseBuffer(0x01) / 10.0; // Divide by 10 for correct scale
     }
+    return temperature;
   }
 
-  float getTemp()
+  // Fetch humidity in %RH
+  float getHumidity()
   {
-    return (TempFloat * 1) / 10.00;
+    if (result == node.ku8MBSuccess)
+    {
+      humidity = node.getResponseBuffer(0x00) / 10.0; // Divide by 10 for correct scale
+    }
+    return humidity;
   }
 
-  float getHumid()
-  {
-    return (HumidFloat * 1) / 10.00;
-  }
-
-  void getString()
+  void reportValues()
   {
     Serial.println("┌------------------------------------------------┐");
-    Serial.println("│ Get string Temp Humid                          │");
+    Serial.println("│ TempHumid Sensor Data                          │");
     Serial.println("└------------------------------------------------┘");
-    Serial.print("[+] Id: ");
-    Serial.println(_id);
-    Serial.print(", _name: ");
-    Serial.println(_name);
-    Serial.print("Temp: ");
-    Serial.println(TempFloat);
-    Serial.print("Humid: ");
-    Serial.println(HumidFloat);
+
+    Serial.print("Temperature (°C): ");
+    Serial.println(getTemperature(), 2);
+    Serial.print("Humidity (%RH): ");
+    Serial.println(getHumidity(), 2);
   }
 };
 

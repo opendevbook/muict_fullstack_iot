@@ -7,12 +7,14 @@
 #include <ArduinoJson.h>
 
 // WiFi Credentials
-const char *ssid = "your-wifi";
-const char *password = "your-pass";
+// const char *ssid = "itbakery-wifi";
+const char *ssid = "TrueGigatexFiber_uS7_2.4G";
+const char *password = "itbakery@9";
 
+// const char *access_token = "QBxa2YOnjquSc1qb5R1v";
 // ThingsBoard server and token
-const char *mqtt_server = "mqtt-server";
-const char *access_token = "token";
+const char *mqtt_server = "demo.thingsboard.io";
+const char *access_token = "4KZLx8HMR4E4nVfriEQL";
 
 const int mqtt_port = 1883;
 
@@ -21,7 +23,7 @@ const int mqtt_port = 1883;
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// Function prototypes
+// Function open prototypes
 void OpenValve1();
 void OpenValve2();
 void OpenValve3();
@@ -31,18 +33,40 @@ void OpenValve6();
 void OpenValve7();
 void OpenValve8();
 void OpenValve9();
+void OpenValve10();
+void OpenValve11();
+
+// Function open prototypes
+void CloseValve1();
+void CloseValve2();
+void CloseValve3();
+void CloseValve4();
+void CloseValve5();
+void CloseValve6();
+void CloseValve7();
+void CloseValve8();
+void CloseValve9();
+void CloseValve10();
+void CloseValve11();
 
 // Array of device state keys
-const char *deviceKeys[9] = {
+const char *deviceKeys[11] = {
     "deviceState1", "deviceState2", "deviceState3",
     "deviceState4", "deviceState5", "deviceState6",
-    "deviceState7", "deviceState8", "deviceState9"};
+    "deviceState7", "deviceState8", "deviceState9", "deviceState10", "deviceState11"};
 
 // Array of function pointers corresponding to each device state
-void (*deviceFunctions[9])() = {
+void (*OpenDeviceFunctions[11])() = {
     OpenValve1, OpenValve2, OpenValve3,
     OpenValve4, OpenValve5, OpenValve6,
-    OpenValve7, OpenValve8, OpenValve9};
+    OpenValve7, OpenValve8, OpenValve9,
+    OpenValve10, OpenValve11};
+
+void (*CloseDeviceFunctions[11])() = {
+    CloseValve1, CloseValve2, CloseValve3,
+    CloseValve4, CloseValve5, CloseValve6,
+    CloseValve7, CloseValve8, CloseValve9,
+    CloseValve10, CloseValve11};
 
 // Flag to track Wi-Fi connection status
 bool wifiConnected = false;
@@ -99,6 +123,87 @@ void WiFiEvent(WiFiEvent_t event)
     }
 }
 
+void requestSharedAttributes()
+{
+    // Log the start of the request
+    Serial.println("\nProcessing Request for Shared Attributes...");
+    const char *requestTopic = "v1/devices/me/attributes/request/1"; // Replace '1' with your request ID
+    const char *payload = "{}";                                      // Empty JSON to request all shared attributes
+    Serial.println("Requesting all shared attributes...");
+    bool success = client.publish(requestTopic, payload);
+    if (success)
+    {
+        Serial.println("+Request sent successfully.");
+    }
+    else
+    {
+        Serial.println("-Failed to send request. Check MQTT connection.");
+    }
+}
+
+// Funtion connect to mqtt
+void connectToMQTT()
+{
+    const int maxRetries = 10; // Maximum number of retries
+    int tryNum = 0;            // Current attempt count
+
+    while (!client.connected() && tryNum < maxRetries)
+    {
+        Serial.printf("Connecting to MQTT... Attempt %d/%d\n", tryNum + 1, maxRetries);
+
+        // Try to connect to the MQTT broker
+        if (client.connect("ESP32", access_token, nullptr))
+        {
+            Serial.println("Connected to MQTT broker.");
+            // Once connected, subscribe or publish to topics
+            // Subscribe to required topics and check results
+            if (client.subscribe("v1/devices/me/rpc/request/+"))
+            {
+                Serial.println("+Subscribed to RPC request topic successfully.");
+            }
+            else
+            {
+                Serial.println("-Failed to subscribe to RPC request topic.");
+            }
+
+            if (client.subscribe("v1/devices/me/attributes"))
+            {
+                Serial.println("+Subscribed to attributes topic successfully.");
+            }
+            else
+            {
+                Serial.println("-Failed to subscribe to attributes topic.");
+            }
+
+            if (client.subscribe("v1/devices/me/attributes/response/+"))
+            {
+                Serial.println("+Subscribed to attributes response topic successfully.");
+            }
+            else
+            {
+                Serial.println("-Failed to subscribe to attributes response topic.");
+            }
+
+            // Request shared attributes after subscribing
+
+            requestSharedAttributes();
+            return; // Exit the function as we are connected
+        }
+        else
+        {
+            Serial.printf("Failed to connect, rc=%d. Retrying in 5 seconds...\n", client.state());
+            delay(5000); // Wait for 5 seconds before trying again
+            tryNum++;    // Increment attempt count
+        }
+    }
+
+    // If we exit the loop without connecting, print a failure message
+    if (!client.connected())
+    {
+        Serial.println("Failed to connect to MQTT broker after maximum retries. Exiting.");
+    }
+}
+
 // Function to reconnect to Wi-Fi with retry limit
 void reconnectWifi()
 {
@@ -141,7 +246,7 @@ void callback(char *topic, byte *payload, unsigned int length)
     unsigned long timestamp = millis();
 
     // Print the log with a timestamp, topic, and payload message
-    Serial.print("[INFO]\n ");
+    Serial.print("\n[INFORMATION  CALL BACK]\n ");
     Serial.print("Time: ");
     Serial.print(timestamp); // Prints the time since the program started in milliseconds
     Serial.print(" ms \n| ");
@@ -163,26 +268,26 @@ void callback(char *topic, byte *payload, unsigned int length)
     }
     Serial.println(message);
 
-    // Handle RPC requests
+    // 1 Handle RPC requests
     if (String(topic).startsWith("v1/devices/me/rpc/request/"))
     {
-        Serial.println("RPC request received:");
+        Serial.println("\n1 RPC request received:");
         handleRpcRequest(topic, message);
     }
 
-    // Handle Shared Attributes
+    // 2 Handle Shared Attributes
     if (String(topic).equals("v1/devices/me/attributes"))
     {
-        Serial.println("Shared attributes updated");
+        Serial.println("\n2 Shared attributes updated");
         Serial.println("Attributes: " + message);
         // Process shared attributes
         handleAttribute(message);
     }
 
-    // Handle the response to the shared attribute request
+    // 3 Handle the response to the shared attribute request
     if (String(topic).equals("v1/devices/me/attributes/response/1"))
     {
-        Serial.println("\nShared attributes response received:");
+        Serial.println("\n3 Shared attributes response received:");
         Serial.println(message);
         // Process the shared attributes (JSON parsing, etc.)
         handleSharedAttributes(message);
@@ -198,11 +303,11 @@ void reconnectMQTT()
         Serial.print("Attempting MQTT connection...");
         if (client.connect("ESP32", access_token, nullptr))
         {
-            Serial.println("connected");
+            Serial.println("connected  to MQTT broker.");
             client.subscribe("v1/devices/me/rpc/request/+");
             client.subscribe("v1/devices/me/attributes");
+            client.subscribe("v1/devices/me/attributes/response/+");
             requestSharedAttributes();
-            return;
         }
         else
         {
@@ -218,24 +323,6 @@ void reconnectMQTT()
         Serial.println("Failed to connect to MQTT broker. Restarting...");
         ESP.restart();
     }
-}
-
-void requestSharedAttributes()
-{
-    // Log the start of the request
-    Serial.println("\nProcessing Request for Shared Attributes...");
-
-    // Define the topic for requesting shared attributes (this can be adjusted if needed)
-    const char *request_topic = "v1/devices/me/attributes/request/1";
-
-    // Empty payload will request all shared attributes
-    const char *request_payload = "{}";
-
-    // Log the request action
-    Serial.println("Requesting shared attributes...");
-
-    // Send the request to ThingsBoard
-    client.publish(request_topic, request_payload);
 }
 
 /*
@@ -268,7 +355,12 @@ void handleSharedAttributes(const String &message)
         for (JsonPair kv : shared)
         {
             const char *key = kv.key().c_str();
-            const char *value = kv.value().as<const char *>();
+            JsonVariant value = kv.value();
+            Serial.println("\nDebug Shared attributed");
+            Serial.print("Received Attribute: ");
+            Serial.print(key);
+            Serial.print(" = ");
+            Serial.println(value.as<String>()); // Print the value (as string for simplicity)
 
             // Perform actions based on specific keys
             handleDeviceState(key, value);
@@ -389,37 +481,166 @@ void handleAttribute(const String &message)
 // Function to handle device state based on the key
 void handleDeviceState(const String &key, const String &state)
 {
-    Serial.println("\nProcess handleDeviceState");
-    for (int i = 0; i < 9; i++)
+    Serial.println("\nProcess handle DeviceState");
+    for (int i = 0; i < 11; i++)
     {
         if (key == deviceKeys[i])
         {
             // Perform action based on device state
-            Serial.print("Updating ");
+            Serial.print("Updating attribute ");
             Serial.print(deviceKeys[i]);
             Serial.print(" to ");
-            Serial.println(state ? "OFF" : "ON");
+            bool stateBool = (state == "true");
+            Serial.println(stateBool ? "ON" : "OFF");
 
             // map to function
-            if (state)
+            if (stateBool)
             {
-                deviceFunctions[i](); // Call the mapped function
+                Serial.println("\nCall Open function");
+                OpenDeviceFunctions[i](); // Call Open function
+            }
+            else
+            {
+                Serial.println("\nCall Close function");
+                CloseDeviceFunctions[i](); // Call closs function
             }
             break;
         }
+        else
+        {
+            Serial.println("Unknown device key!");
+        }
     }
-    Serial.println("Unknown device key!");
 }
 
 // Example functions to open the valves
-void OpenValve1() { Serial.println("Opening Valve 1"); }
-void OpenValve2() { Serial.println("Opening Valve 2"); }
-void OpenValve3() { Serial.println("Opening Valve 3"); }
-void OpenValve4() { Serial.println("Opening Valve 4"); }
-void OpenValve5() { Serial.println("Opening Valve 5"); }
-void OpenValve6() { Serial.println("Opening Valve 6"); }
-void OpenValve7() { Serial.println("Opening Valve 7"); }
-void OpenValve8() { Serial.println("Opening Valve 8"); }
-void OpenValve9() { Serial.println("Opening Valve 9"); }
+void OpenValve1()
+{
+    Serial.println("Opening Valve 1");
+    // controlvalve(VALVE1, OPEN);
+    relay1.on();
+}
+void OpenValve2()
+{
+    Serial.println("Opening Valve 2");
+    // controlvalve(VALVE2, OPEN);
+    relay2.on();
+}
+void OpenValve3()
+{
+    Serial.println("Opening Valve 3");
+    // controlvalve(VALVE3, OPEN);
+    relay3.on();
+}
+void OpenValve4()
+{
+    Serial.println("Opening Valve 4");
+    // controlvalve(VALVE4, OPEN);
+    relay4.on();
+}
+void OpenValve5()
+{
+    Serial.println("Opening Valve 5");
+    // controlvalve(VALVE5, OPEN);
+    relay5.on();
+}
+void OpenValve6()
+{
+    Serial.println("Opening Valve 6");
+    // controlvalve(VALVE6, OPEN);
+    relay6.on();
+}
+void OpenValve7()
+{
+    Serial.println("Opening Valve 7");
+    // controlvalve(VALVE7, OPEN);
+}
+void OpenValve8()
+{
+    Serial.println("Opening Valve 8");
+    // controlvalve(VALVE8, OPEN);
+}
+void OpenValve9()
+{
+    Serial.println("Opening Valve 9");
+    // controlvalve(VALVE9, OPEN);
+}
+void OpenValve10()
+{
+    Serial.println("Opening - Pump1");
+    // controlvalve(VALVE10, OPEN);
+    // pump1Control(ON);
+}
+void OpenValve11()
+{
+    Serial.println("Opening  Pump2");
+    // controlvalve(VALVE11, OPEN);
+    // pump2Control(ON);
+}
+
+// Example functions to Close the valves
+void CloseValve1()
+{
+    Serial.println("Closeing Valve 1");
+    // controlvalve(VALVE1, CLOSE);
+    relay1.off();
+}
+void CloseValve2()
+{
+    Serial.println("Closeing Valve 2");
+    // controlvalve(VALVE2, CLOSE);
+    relay2.off();
+}
+void CloseValve3()
+{
+    Serial.println("Closeing Valve 3");
+    // controlvalve(VALVE3, CLOSE);
+    relay3.off();
+}
+void CloseValve4()
+{
+    Serial.println("Closeing Valve 4");
+    // controlvalve(VALVE4, CLOSE);
+    relay4.off();
+}
+void CloseValve5()
+{
+    Serial.println("Closeing Valve 5");
+    // controlvalve(VALVE5, CLOSE);
+    relay5.off();
+}
+void CloseValve6()
+{
+    Serial.println("Closeing Valve 6");
+    // controlvalve(VALVE6, CLOSE);
+    relay6.off();
+}
+void CloseValve7()
+{
+    Serial.println("Closeing Valve 7");
+    // controlvalve(VALVE7, CLOSE);
+}
+void CloseValve8()
+{
+    Serial.println("Closeing Valve 8");
+    // controlvalve(VALVE8, CLOSE);
+}
+void CloseValve9()
+{
+    Serial.println("Closeing Valve 9");
+    // controlvalve(VALVE9, CLOSE);
+}
+void CloseValve10()
+{
+    Serial.println("Closeing  Pump1");
+    // controlvalve(VALVE10, OPEN);
+    // pump1Control(OFF);
+}
+void CloseValve11()
+{
+    Serial.println("Closeing Pump2");
+    // controlvalve(VALVE11, OPEN);
+    // pump2Control(OFF);
+}
 
 #endif

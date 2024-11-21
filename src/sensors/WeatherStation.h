@@ -12,131 +12,84 @@ private:
     ModbusMaster node;
     Stream *_Serial;
     uint8_t result;
-    int16_t data;
+
+    // Store sensor data
+    uint16_t lightData = 0;
+    uint16_t uvIndex = 0;
+    float temperature = 0.0;
+    float humidity = 0.0;
+    float windSpeed = 0.0;
+    float gustSpeed = 0.0;
+    uint16_t windDirection = 0;
+    uint16_t rainfall = 0;
+    float absolutePressure = 0.0;
 
 public:
     Weatherstation(uint8_t id, String name, Stream *Serial)
-    {
-        _id = id;
-        _name = name;
-        _Serial = Serial;
-    }
+        : _id(id), _name(name), _Serial(Serial) {}
 
     void init()
     {
         Serial.println("Initializing Weather Station...");
-
         node.begin(_id, *_Serial);
-        int attempts = 0;
-        const int max_attempts = 10;
 
-        while (attempts < max_attempts)
+        const int maxAttempts = 10;
+        int attempts = 0;
+
+        while (attempts < maxAttempts)
         {
             delay(1000);
-            result = node.readHoldingRegisters(0x0160, 14);
+            result = node.readHoldingRegisters(0x0160, 14); // Read 14 registers
             if (result == node.ku8MBSuccess)
             {
-                Serial.println("[+] Successfully read data");
+                Serial.println("[+] Successfully initialized.");
                 return;
             }
             else
             {
-                Serial.println("[-] Failed to read data, retrying...");
+                Serial.println("[-] Failed to initialize, retrying...");
             }
             attempts++;
         }
 
         if (result != node.ku8MBSuccess)
         {
-            Serial.println("[-] Unable to read data after retries.");
+            Serial.println("[-] Unable to initialize after retries.");
         }
     }
 
-    // Individual getters for each register
-    String getDeviceName()
+    // Fetch and update all data from Modbus
+    void fetchData()
     {
-        return String(node.getResponseBuffer(0));
+        if (result == node.ku8MBSuccess)
+        {
+            lightData = node.getResponseBuffer(5);
+            uvIndex = node.getResponseBuffer(6);
+            temperature = (node.getResponseBuffer(7) - 400) / 10.0;
+            humidity = node.getResponseBuffer(8) / 10.0;
+            windSpeed = node.getResponseBuffer(9) / 10.0;
+            gustSpeed = node.getResponseBuffer(10) / 10.0;
+            windDirection = node.getResponseBuffer(11);
+            rainfall = node.getResponseBuffer(12);
+            absolutePressure = node.getResponseBuffer(13) / 10.0;
+        }
     }
 
-    uint16_t getDataRate()
-    {
-        return node.getResponseBuffer(1);
-    }
+    // Individual getters for sensor data
+    uint16_t getLightData() { return lightData; }
+    uint16_t getUVIndex() { return uvIndex; }
+    float getTemperature() { return temperature; }
+    float getHumidity() { return humidity; }
+    float getWindSpeed() { return windSpeed; }
+    float getGustSpeed() { return gustSpeed; }
+    uint16_t getWindDirection() { return windDirection; }
+    uint16_t getRainfall() { return rainfall; }
+    float getAbsolutePressure() { return absolutePressure; }
 
-    uint16_t getDeviceAddress()
-    {
-        return node.getResponseBuffer(2);
-    }
-
-    uint16_t getDeviceInMSB()
-    {
-        return node.getResponseBuffer(3);
-    }
-
-    uint16_t getDeviceInLSB()
-    {
-        return node.getResponseBuffer(4);
-    }
-
-    uint16_t getLightData()
-    {
-        return node.getResponseBuffer(5);
-    }
-
-    uint16_t getUVIndex()
-    {
-        return node.getResponseBuffer(6);
-    }
-
-    float getTemperature()
-    {
-        return (node.getResponseBuffer(7) - 400) / 10.0; // Adjust offset and scale
-    }
-
-    float getHumidity()
-    {
-        return node.getResponseBuffer(8) / 10.0; // Convert to %RH
-    }
-
-    float getWindSpeed()
-    {
-        return node.getResponseBuffer(9) / 10.0; // Convert to m/s
-    }
-
-    float getGustSpeed()
-    {
-        return node.getResponseBuffer(10) / 10.0; // Convert to m/s
-    }
-
-    uint16_t getWindDirection()
-    {
-        return node.getResponseBuffer(11);
-    }
-
-    uint16_t getRainfall()
-    {
-        return node.getResponseBuffer(12);
-    }
-
-    float getAbsolutePressure()
-    {
-        return node.getResponseBuffer(13) / 10.0; // Convert to proper units
-    }
-
-    // Function to report all values
+    // Report all values
     void reportValues()
     {
         Serial.println("=== Weather Station Data ===");
-        Serial.print("Device Name: ");
-        Serial.println(getDeviceName());
-        Serial.print("Data Rate: ");
-        Serial.println(getDataRate());
-        Serial.print("Device Address: ");
-        Serial.println(getDeviceAddress());
-        Serial.print("Device In MSB: ");
-        Serial.println(getDeviceInMSB());
-        Serial.print("Device In LSB: ");
-        Serial.println(getDeviceInLSB());
         Serial.print("Light Data: ");
         Serial.println(getLightData());
         Serial.print("UV Index: ");
@@ -156,6 +109,24 @@ public:
         Serial.print("Absolute Pressure (hPa): ");
         Serial.println(getAbsolutePressure());
         Serial.println("===========================");
+    }
+
+    // Generate JSON payload for ThingsBoard
+    String generatePayload()
+    {
+        fetchData(); // Ensure data is updated
+        String payload = "{";
+        payload += "\"lightData\":" + String(lightData) + ",";
+        payload += "\"uvIndex\":" + String(uvIndex) + ",";
+        payload += "\"temperature\":" + String(temperature, 2) + ",";
+        payload += "\"humidity\":" + String(humidity, 2) + ",";
+        payload += "\"windSpeed\":" + String(windSpeed, 2) + ",";
+        payload += "\"gustSpeed\":" + String(gustSpeed, 2) + ",";
+        payload += "\"windDirection\":" + String(windDirection) + ",";
+        payload += "\"rainfall\":" + String(rainfall) + ",";
+        payload += "\"absolutePressure\":" + String(absolutePressure, 2);
+        payload += "}";
+        return payload;
     }
 };
 
